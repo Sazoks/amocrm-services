@@ -9,6 +9,17 @@ from ..tokens import Tokens
 class ITokenManaged(ABC):
     """Интерфейс для управления токенами"""
 
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """
+        Получение уникального имени менеджера токенов.
+
+        :return: Имя в виде строки.
+        """
+
+        raise NotImplementedError()
+
     @abstractmethod
     def get_tokens(self) -> Tokens | None:
         """

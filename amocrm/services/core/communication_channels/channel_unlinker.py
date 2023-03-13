@@ -4,6 +4,8 @@ from ..exceptions import (
 )
 from ..client import AmoCRMClient
 from ..endpoints import AmoCRMAjaxEndpoints
+from ...utils.request_status import HTTPStatus
+
 from .channel_data import AmoCRMCommunicationChannelData
 
 
@@ -45,7 +47,7 @@ class AmoCRMCommunicationChannelUnlinker:
         except Exception as e:
             raise AmoCRMUnlinkChatException(channel_data.chat_id) from e
 
-        if response.status_code != 200:
+        if response.status_code != HTTPStatus.HTTP_200_OK:
             raise AmoCRMResponseException(
                 message=f"Ошибка при отключении канала связи {channel_data.chat_id}",
                 response=response,

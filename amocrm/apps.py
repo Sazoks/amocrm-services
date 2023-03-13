@@ -7,4 +7,4 @@ class AmocrmConfig(AppConfig):
 
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.amocrm"
-    verbose_name = _('amoCRM')
+    verbose_name = _("amoCRM")

@@ -13,6 +13,8 @@ from .endpoints import (
 )
 from .client import AmoCRMClient
 
+from ..utils.request_status import HTTPStatus
+
 
 class AmoCRMTalks:
     """Класс для работы с беседами amoCRM"""
@@ -82,7 +84,10 @@ class AmoCRMTalks:
             except Exception as e:
                 close_talk_errors.append(e)
             else:
-                if response.status_code != 200:
+                if (
+                    response.status_code != HTTPStatus.HTTP_202_ACCEPTED
+                    and response.status_code != HTTPStatus.HTTP_422_UNPROCESSABLE_ENTITY
+                ):
                     close_talk_errors.append(AmoCRMResponseException(response))
 
         if len(close_talk_errors) > 0:

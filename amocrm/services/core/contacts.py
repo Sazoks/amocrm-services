@@ -1,6 +1,8 @@
 from typing import Any
 from enum import StrEnum
 
+from ..utils.request_status import HTTPStatus
+
 from .client import AmoCRMClient
 from .exceptions import AmoCRMResponseException
 from .endpoints import AmoCRMOpenEndpoints
@@ -25,24 +27,19 @@ class AmoCRMContacts:
 
         self.__amocrm_client = amocrm_client
 
-    # TODO: Если я правильно понял, то amoCRM вернет не абсолютно все контакты в аккаунте,
-    #   а максимум 250. И это может быть проблемой. Возможно, нужно будет найти решение,
-    #   которое позволит получать точно все контакты. Одним или нет запросом - неважно.
-    def get(
+    def get_contact_by_id(
         self,
-        contact_id: int | None = None,
+        contact_id: int,
         embedded_entities: list[EmbeddedEntities] | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """
-        Получение данных о контактах.
+        Получение данных о контакте.
 
         :param contact_id: ID конкретного контакта.
         :param embedded_entities:
             Список связанных сущностей, которые необходимо получить в ответе.
 
-        :return: Список словарей с данными о контактах.
-
-        :raise AmoCRMResponseException: В случае ошибки получения контактов.
+        :return: Данные о контакте в словаре.
         """
 
         # Данные для запроса.
@@ -52,28 +49,29 @@ class AmoCRMContacts:
         if embedded_entities is not None and len(embedded_entities) > 0:
             request_params["with"] = ",".join(embedded_entities)
 
-        # Выбираем эндпоинт на основе `contact_id`.
-        # Либо запрашиваем один контакт, либо все.
-        if contact_id is not None:
-            url_postfix = AmoCRMOpenEndpoints.CONTACT_DETAIL.format(contact_id=contact_id)  # type: ignore
-        else:
-            url_postfix = AmoCRMOpenEndpoints.CONTACTS
-
         # Делаем запрос на получение данных.
         response = self.__amocrm_client.request(
             method="get",
-            url_postfix=url_postfix,
+            url_postfix=AmoCRMOpenEndpoints.CONTACT_DETAIL.format(contact_id=contact_id),  # type: ignore
             params=request_params,
         )
-        if response.status_code != 200:
+        if response.status_code != HTTPStatus.HTTP_200_OK:
             raise AmoCRMResponseException(
-                message="Ошибка получения контактов",
+                message=f"Ошибка получения контакта {contact_id}",
                 response=response,
             )
 
-        # Если был запрошен один контакт, обернем данные о нем в список.
-        if contact_id is not None:
-            return [response.json()]
+        return response.json()
 
-        # Иначе вернем список контактов из тела ответа.
-        return response.json()["_embedded"]["contacts"]
+    def get_leads_by_contact(self, contact_id: int) -> list[dict[str, Any]]:
+        """
+        Получение сделок контакта.
+
+        :param contact_id: ID контакта, у которого нужно получить сделки.
+
+        :return: Список словарей с данными по сделкам.
+        """
+
+        contact_data = self.get_contact_by_id(contact_id, [self.EmbeddedEntities.LEADS])
+
+        return contact_data["_embedded"]["leads"]

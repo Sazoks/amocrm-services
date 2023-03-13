@@ -15,6 +15,7 @@ class AmoCRMAjaxEndpoints(StrEnum):
 
     UNLINK_CONTACTS_CHAT = "/ajax/v2/profiles/unlink"
     TALKS = "/ajax/v2/talks"
+    GET_AMOJO_TOKENS = "/ajax/v1/chats/session"
 
 
 class AmoCRMResources(StrEnum):

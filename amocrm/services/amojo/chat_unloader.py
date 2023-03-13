@@ -1,12 +1,10 @@
 import json
 import requests
-from typing import (
-    Any,
-    Self,
-)
+from typing import Self
 from datetime import datetime
 from dataclasses import dataclass
 
+from ..utils.request_status import HTTPStatus
 from ..core.exceptions import AmoCRMResponseException
 
 from .client import AmoJoClient
@@ -66,7 +64,7 @@ class AmoJoChatUnloader:
         # Делаем запрос на получение очередной пачки сообщений из чата.
         response = self.__amojo_client.request(
             method="get",
-            url_postfix=AmoJoClosedEndpoints.GET_CHAT_MESSAGES.format(
+            url_postfix=AmoJoClosedEndpoints.GET_CHAT_MESSAGES.format(  # type: ignore[str-format]
                 amojo_id=self.__amojo_id
             ),
             params={
@@ -78,7 +76,10 @@ class AmoJoChatUnloader:
                 "lang": "ru",
             },
         )
-        if response.status_code != 200:
+
+        if response.status_code == HTTPStatus.HTTP_204_NO_CONTENT:
+            raise StopIteration()
+        if response.status_code != HTTPStatus.HTTP_200_OK:
             raise AmoCRMResponseException(
                 message=(
                     f"Ошибка при выгрузке сообщений "
@@ -109,15 +110,14 @@ class AmoJoChatUnloader:
         :return: Список объектов `ChatMessages`.
         """
 
-        messages: list[self.ChatMessage] = []
+        messages: list[self.ChatMessage] = []  # type: ignore[name-defined]
 
-        messages_data: list[dict[str, Any]] = response.json()["message_list"]
-        for message_data in messages_data:
+        for message_data in response.json():
             sender = message_data["author"]["full_name"]
             receiver = message_data["recipient"]["full_name"]
-            receiver_phone = json.loads(
-                message_data["recipient"]["origin_profile"]
-            )["phone"]
+            receiver_phone = json.loads(message_data["recipient"]["origin_profile"])[
+                "profile"
+            ]["phone"]
             time = datetime.fromtimestamp(message_data["created_at"])
 
             messages.append(

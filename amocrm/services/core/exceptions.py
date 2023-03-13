@@ -54,3 +54,32 @@ class AmoCRMUnlinkChatException(Exception):
         self.message = f"Ошибка при отключении чата {chat_id}"
 
         super().__init__(self.message)
+
+
+class AmoCRMClientInitException(Exception):
+    """Исключение при инициализации AmoCRMClient"""
+
+    def __init__(self) -> None:
+        """Инициализатор класса"""
+
+        self.message = "Ошибка при инициализации AmoCRMClient"
+
+        super().__init__(self.message)
+
+
+class AmoCRMGetContactException(Exception):
+    """Исключение при получении контакта amoCRM"""
+
+    def __init__(self, contact_id: int) -> None:
+        """Инициализатор класса"""
+
+        self.contact_id = contact_id
+        self.message = f"Ошибка получения контакта {contact_id} из amoCRM"
+
+        super().__init__(self.message)
+
+
+class AmoCRMNoLeadsException(Exception):
+    """Исключение при отсутствии сделок"""
+
+    pass

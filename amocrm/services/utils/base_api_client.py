@@ -1,6 +1,7 @@
 import requests
 from typing import Any
-from enum import IntEnum
+
+from .request_status import HTTPStatus
 
 
 class BaseAPIClient:
@@ -11,11 +12,6 @@ class BaseAPIClient:
     """
 
     _REQUESTS_THAT_HAVE_BODY = ("post", "put", "putch")
-
-    class RequestStatus(IntEnum):
-        """Коды ответа при запросе"""
-
-        HTTP_401_UNAUTHORIZED = 401
 
     def __init__(self, base_url: str) -> None:
         """
@@ -35,6 +31,7 @@ class BaseAPIClient:
         method: str,
         url_postfix: str,
         data: dict[str, Any] | None = None,
+        is_json: bool = True,
         params: dict[str, Any] | None = None,
         headers: dict[str, Any] | None = None,
     ) -> requests.Response:
@@ -47,6 +44,10 @@ class BaseAPIClient:
         :param method: HTTP-метод запроса.
         :param url_postfix: Маршрут эндпоинта.
         :param data: Данные для тела запроса.
+        :param is_json:
+            Флаг, указывающий, что данные являются `applicaiton/json`.
+            Можно передать значение `False`, если не нужно для тела
+            запроса применять обработку как для JSON.
         :param params: GET-параметры запроса.
         :param headers: Дополнительные заголовки запроса.
 
@@ -54,13 +55,15 @@ class BaseAPIClient:
         """
 
         # Делаем запрос.
-        response = self._request(method, url_postfix, data, params, headers)
+        response = self._request(method, url_postfix, data, is_json, params, headers)
 
         # Если запрос был неавторизированным, производим авторизационный запрос
         # и повторяем исходный запрос.
         if self._is_unauthorized_request(response):
             self._authorization()
-            response = self._request(method, url_postfix, data, params, headers)
+            response = self._request(
+                method, url_postfix, data, is_json, params, headers
+            )
 
         return response
 
@@ -69,20 +72,11 @@ class BaseAPIClient:
         method: str,
         url_postfix: str,
         data: dict[str, Any] | None = None,
+        is_json: bool = True,
         params: dict[str, Any] | None = None,
         headers: dict[str, Any] | None = None,
     ) -> requests.Response:
-        """
-        Базовый метод отправки запроса на указанный эндпоинт.
-
-        :param method: HTTP-метод запроса.
-        :param url_postfix: Маршрут эндпоинта.
-        :param data: Данные для тела запроса.
-        :param params: GET-параметры запроса.
-        :param headers: Дополнительные заголовки запроса.
-
-        :return: Объект ответа `requests.Response`.
-        """
+        """Базовый метод отправки запроса на указанный эндпоинт"""
 
         # Если есть доп. GET-параметры, добавляем их к URL.
         get_params: dict[str, Any] = self._get_request_params()
@@ -100,6 +94,12 @@ class BaseAPIClient:
             body_data.update(self._get_request_data())
             body_data.update(data)
 
+        request_body_param: dict[str, dict[str, Any]] = {}
+        if is_json:
+            request_body_param["data"] = body_data
+        else:
+            request_body_param["json"] = body_data
+
         # Добавляем доп. заголовки, если они есть.
         request_headers: dict[str, Any] = self._get_request_headers()
         request_headers.update(headers or {})
@@ -111,8 +111,8 @@ class BaseAPIClient:
             method=method,
             url=full_url,
             params=get_params,
-            json=body_data,
             headers=request_headers,
+            **request_body_param,  # type: ignore[arg-type]
         )
 
     def _get_request_params(self) -> dict[str, Any]:
@@ -150,7 +150,7 @@ class BaseAPIClient:
         :param response: Объект синхронного ответа `requests.Response`.
         """
 
-        return response.status_code == self.RequestStatus.HTTP_401_UNAUTHORIZED
+        return response.status_code == HTTPStatus.HTTP_401_UNAUTHORIZED
 
     def _authorization(self) -> None:
         """Метод для проведения авторизации во внешнем сервисе"""
@@ -180,7 +180,7 @@ class BaseAPIClient:
         if url_postfix.startswith("/"):
             url_postfix = url_postfix[1:]
 
-        base_url = self.__base_url
+        base_url = self._base_url
         if base_url.endswith("/"):
             base_url = base_url[:-1]
 

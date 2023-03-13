@@ -2,8 +2,10 @@ from typing import Any
 from enum import StrEnum
 
 from ..tokens import Tokens
+from ..tokens.interfaces.token_managed import ITokenManaged
+
+from ..utils.request_status import HTTPStatus
 from ..utils.base_api_client import BaseAPIClient
-from ..interfaces.token_managed import ITokenManaged
 
 from .endpoints import AmoCRMAuthEndpoints
 from .exceptions import AmoCRMAuthException
@@ -38,8 +40,8 @@ class AmoCRMClient(BaseAPIClient):
         :param redirect_url:
             URL-для перенаправления после авторизации, должен совпадать со
             значением в amoCRM.
-        :param tokens_manager: 
-            Объект для управления токенами. Отвечает за их получение и сохранение 
+        :param tokens_manager:
+            Объект для управления токенами. Отвечает за их получение и сохранение
             согласно логике класса, реализующего данный интерфейс.
         """
 
@@ -53,7 +55,7 @@ class AmoCRMClient(BaseAPIClient):
         self.__tokens_manager = tokens_manager
         self.__tokens = self.__tokens_manager.get_tokens()
         if self.__tokens is None:
-            self._auth_with(self.GrantType.AUTH_CODE)
+            self._authorization()
 
     @property
     def tokens(self) -> Tokens | None:
@@ -87,6 +89,11 @@ class AmoCRMClient(BaseAPIClient):
         # Выбираем нужный тип аутентификации в amoCRM.
         match grant_type:
             case self.GrantType.REFRESH:
+                if self.__tokens is None:
+                    raise ValueError(
+                        f"Попытка обновить токены через {grant_type}, "
+                        f"когда токенов обновленя нет."
+                    )
                 token_field, token = grant_type.value, self.__tokens.refresh_token
             case self.GrantType.AUTH_CODE:
                 token_field, token = "code", self.__auth_code
@@ -109,13 +116,13 @@ class AmoCRMClient(BaseAPIClient):
             data=data,
         )
         # Если не удалось аутентифицироваться, выбрасываем исключение.
-        if response.status_code != 200:
+        if response.status_code != HTTPStatus.HTTP_200_OK:
             raise AmoCRMAuthException(response)
 
         # Если все хорошо, сохраняем токены через менеджер.
         json_data: dict[str, str] = response.json()
         new_tokens = Tokens(
-            access_token=json_data["access_token"], 
+            access_token=json_data["access_token"],
             refresh_token=json_data["refresh_token"],
         )
         self.__tokens = self.__tokens_manager.save_tokens(new_tokens)
@@ -127,6 +134,8 @@ class AmoCRMClient(BaseAPIClient):
         Позволяет добавлять к каждому запросу доп. заголовки.
         """
 
-        return {
-            "Authorization": f"Bearer {self.__tokens.access_token}",
-        }
+        headers = {}
+        if self.__tokens is not None:
+            headers["Authorization"] = f"Bearer {self.__tokens.access_token}"
+
+        return headers
